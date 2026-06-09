@@ -3,6 +3,7 @@ import { jsonResult } from './_format.js';
 import * as screener from '../core/screener.js';
 import * as news from '../core/news.js';
 import * as calendar from '../core/calendar.js';
+import * as markets from '../core/markets.js';
 
 const wrap = (fn) => async (args) => {
   try { return jsonResult(await fn(args || {})); }
@@ -84,5 +85,37 @@ export function registerDiscoveryTools(server) {
       limit: z.coerce.number().optional().describe('Max rows (default 50)'),
     },
     wrap(calendar.earningsCalendar),
+  );
+
+  // ── Markets / fundamentals ──
+  server.tool(
+    'quotes_get',
+    'Quote snapshot for any exchange-qualified symbols (stocks, indices, futures, forex, crypto, bonds), e.g. ["SP:SPX","NYMEX:CL1!","FX:EURUSD","BINANCE:BTCUSDT"]. Returns price, change %, change abs, volume.',
+    {
+      symbols: z.string().describe('JSON array of symbols, e.g. \'["SP:SPX","NASDAQ:AAPL"]\''),
+      columns: z.string().optional().describe('Optional JSON array of raw scanner columns'),
+    },
+    wrap(({ symbols, columns }) => markets.quotes({ symbols: JSON.parse(symbols), columns: columns ? JSON.parse(columns) : undefined })),
+  );
+
+  server.tool(
+    'fundamentals_get',
+    'Per-symbol fundamentals snapshot for a US stock: valuation (P/E, P/B), profitability (margins, ROE/ROA), balance sheet (debt, FCF), revenue, EPS, dividend yield.',
+    { symbol: z.string().describe('Exchange-qualified US stock, e.g. "NASDAQ:AAPL"') },
+    wrap(markets.fundamentals),
+  );
+
+  server.tool(
+    'market_overview',
+    'Market dashboard: snapshot of a basket — us_indices, global_indices, futures, forex, crypto, or "all".',
+    { basket: z.enum(['us_indices', 'global_indices', 'futures', 'forex', 'crypto', 'all']).optional().describe('Basket to show (default all)') },
+    wrap(markets.overview),
+  );
+
+  server.tool(
+    'yield_curve',
+    'US Treasury yield curve: yields by maturity (1M…30Y), the 10Y-2Y spread, and whether the curve is inverted.',
+    {},
+    wrap(markets.yieldCurve),
   );
 }
