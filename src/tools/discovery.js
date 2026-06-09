@@ -4,6 +4,7 @@ import * as screener from '../core/screener.js';
 import * as news from '../core/news.js';
 import * as calendar from '../core/calendar.js';
 import * as markets from '../core/markets.js';
+import * as insights from '../core/insights.js';
 
 const wrap = (fn) => async (args) => {
   try { return jsonResult(await fn(args || {})); }
@@ -117,5 +118,58 @@ export function registerDiscoveryTools(server) {
     'US Treasury yield curve: yields by maturity (1M…30Y), the 10Y-2Y spread, and whether the curve is inverted.',
     {},
     wrap(markets.yieldCurve),
+  );
+
+  // ── Insights ──
+  server.tool(
+    'technicals_get',
+    'TradingView technical rating gauge for a symbol: overall + moving-averages + oscillators rating (Strong Buy…Strong Sell) at a timeframe, plus RSI/MACD/ADX/Stoch values.',
+    {
+      symbol: z.string().describe('Exchange-qualified symbol, e.g. "NASDAQ:AAPL"'),
+      timeframe: z.enum(['1m', '5m', '15m', '30m', '1h', '2h', '4h', '1d', '1w', '1M']).optional().describe('Timeframe (default 1d)'),
+      market: z.string().optional().describe('Scanner market (default america)'),
+    },
+    wrap(insights.technicals),
+  );
+
+  server.tool(
+    'symbol_profile',
+    'Company profile / about: description, country, sector, industry, employees, shareholders, float, market cap.',
+    {
+      symbol: z.string().describe('Exchange-qualified symbol'),
+      market: z.string().optional().describe('Scanner market (default america)'),
+    },
+    wrap(insights.profile),
+  );
+
+  server.tool(
+    'symbol_lookup',
+    'Rich symbol search across exchanges — returns exchange-qualified symbols with type, currency, ISIN and CUSIP.',
+    {
+      query: z.string().describe('Search text, e.g. "apple", "btc", "crude oil"'),
+      type: z.string().optional().describe('Filter by type: stock, crypto, forex, futures, index, ...'),
+      exchange: z.string().optional().describe('Filter by exchange code'),
+    },
+    wrap(insights.search),
+  );
+
+  server.tool(
+    'ideas_get',
+    'Community trade ideas published for a symbol (title, author, direction, likes, summary, link).',
+    {
+      symbol: z.string().describe('Exchange-qualified symbol'),
+      limit: z.coerce.number().optional().describe('Max ideas (default 10)'),
+    },
+    wrap(insights.ideas),
+  );
+
+  server.tool(
+    'minds_get',
+    'Community "Minds" social posts for a symbol (sentiment chatter): author, text, likes.',
+    {
+      symbol: z.string().describe('Exchange-qualified symbol'),
+      limit: z.coerce.number().optional().describe('Max posts (default 10)'),
+    },
+    wrap(insights.minds),
   );
 }

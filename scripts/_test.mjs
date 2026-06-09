@@ -1,0 +1,10 @@
+import * as ins from '../src/core/insights.js';
+import { disconnect } from '../src/connection.js';
+const log=(t,o)=>console.log(t,JSON.stringify(o));
+log('technicals AAPL 1d ->', await ins.technicals({symbol:'NASDAQ:AAPL'}));
+log('technicals NVDA 1W ->', await ins.technicals({symbol:'NASDAQ:NVDA',timeframe:'1w'}));
+const p=await ins.profile({symbol:'NASDAQ:AAPL'}); log('profile ->', {name:p.name,country:p.country,sector:p.sector,employees:p.employees,website:p.website});
+const s=await ins.search({query:'crude oil'}); log('search "crude oil" ->', {count:s.count,first3:s.results.slice(0,3)});
+const id=await ins.ideas({symbol:'NASDAQ:AAPL',limit:2}); log('ideas ->', {total:id.total,count:id.count,first:id.ideas[0]});
+const m=await ins.minds({symbol:'NASDAQ:AAPL',limit:2}); log('minds ->', {count:m.count,first:m.posts[0]});
+await disconnect();
