@@ -617,3 +617,46 @@ export async function listScripts() {
     error: scripts?.error,
   };
 }
+
+/**
+ * One-shot: apply a Pine Script formula to the chart.
+ * 1) (optional) validate via TradingView's server compiler — fast, no UI;
+ *    on failure returns errors WITHOUT touching the chart.
+ * 2) start a fresh script (default) so we don't clobber editor work,
+ * 3) inject the source,
+ * 4) compile + add to chart,
+ * 5) report compile errors and whether a study was added.
+ */
+export async function applyFormula({ source, validate = true, fresh = true, type = 'indicator' }) {
+  if (!source || !String(source).trim()) throw new Error('source (Pine Script code) is required');
+
+  let validation = null;
+  if (validate) {
+    validation = await check({ source });
+    if (!validation.compiled) {
+      return {
+        success: false,
+        stage: 'validate',
+        compiled: false,
+        errors: validation.errors,
+        warnings: validation.warnings,
+        note: 'Server-side validation failed — chart not modified. Fix the errors and retry.',
+      };
+    }
+  }
+
+  if (fresh) await newScript({ type });
+  await setSource({ source });
+  const result = await smartCompile();
+
+  return {
+    success: !result.has_errors,
+    stage: 'applied',
+    validated: validation ? validation.compiled : undefined,
+    study_added: result.study_added,
+    button_clicked: result.button_clicked,
+    has_errors: result.has_errors,
+    errors: result.errors,
+    warnings: validation?.warnings,
+  };
+}

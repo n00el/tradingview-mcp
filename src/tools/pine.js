@@ -72,4 +72,13 @@ export function registerPineTools(server) {
     try { return jsonResult(await core.check({ source })); }
     catch (err) { return jsonResult({ success: false, error: err.message }, true); }
   });
+
+  server.tool('pine_apply', 'One-shot: apply a Pine Script formula/indicator to the chart. Validates via the server compiler first (chart untouched on failure), then injects + compiles + adds to chart and reports errors. Use this to put a custom formula on the chart in a single call.', {
+    source: z.string().describe('Pine Script source code (v5/v6) to apply'),
+    validate: z.coerce.boolean().optional().describe('Server-validate before applying (default true)'),
+    fresh: z.coerce.boolean().optional().describe('Start a new script instead of overwriting the editor (default true)'),
+  }, async ({ source, validate, fresh }) => {
+    try { return jsonResult(await core.applyFormula({ source, validate: validate ?? true, fresh: fresh ?? true })); }
+    catch (err) { return jsonResult({ success: false, error: err.message }, true); }
+  });
 }
