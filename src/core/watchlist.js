@@ -59,23 +59,6 @@ function planError(res, action) {
   };
 }
 
-/**
- * Note for colored/flagged-list symbol edits. The colored append/remove
- * endpoints expect a color-code format that differs from the named colors
- * returned by GET (TODO: resolve once a paid account is available to test).
- * Use custom watchlists for reliable symbol add/remove.
- */
-function coloredNote(res, action) {
-  return {
-    success: false,
-    colored_unsupported: true,
-    action,
-    status: res.status,
-    error: 'Adding/removing symbols on colored (flagged) lists is not yet supported — use a custom watchlist instead. ' +
-      `(API said: ${res?.data?.detail || res?.data?.code || res.status})`,
-  };
-}
-
 /** Shape a raw list object from the API into a compact summary. */
 function shapeList(l) {
   return {
@@ -138,22 +121,28 @@ export async function getById({ id }) {
   return { success: true, ...shapeList(found) };
 }
 
-/** Resolve a list's type ("custom" | "colored") by id; defaults to "custom". */
-async function resolveType(id) {
+/**
+ * Resolve a list id to its REST path descriptor.
+ * Custom lists are addressed by numeric id (/custom/<id>/); colored lists are
+ * addressed by COLOR NAME (/colored/<color>/) — the numeric id does NOT work
+ * for colored endpoints (yields "bad_color"). Returns { id, type, color, key }
+ * where `key` is the correct path segment for that list's type.
+ */
+async function resolveList(id) {
   const numId = Number(id);
   const colored = await tvFetch('/api/v1/symbols_list/colored/');
-  if (Array.isArray(colored.data) && colored.data.some(l => l.id === numId)) return 'colored';
-  return 'custom';
+  const c = Array.isArray(colored.data) ? colored.data.find(l => l.id === numId) : null;
+  if (c) return { id: numId, type: 'colored', color: c.color, key: c.color };
+  return { id: numId, type: 'custom', color: null, key: String(numId) };
 }
 
 /**
  * Create a new watchlist. [paid plan]
  */
-export async function create({ name, symbols = [], color = null }) {
-  const type = color ? 'colored' : 'custom';
-  const body = { name, symbols };
-  if (color) body.color = color;
-  const res = await tvFetch(`/api/v1/symbols_list/${type}/`, { method: 'POST', body });
+export async function create({ name, symbols = [] }) {
+  // Only custom lists can be created. Colored (flag) lists are fixed buckets
+  // that already exist — you flag symbols into them, you don't create them.
+  const res = await tvFetch('/api/v1/symbols_list/custom/', { method: 'POST', body: { name, symbols } });
   if (!res.ok) return res.status === 403 ? planError(res, 'create') : { success: false, status: res.status, error: res.data };
   return { success: true, action: 'created', ...shapeList(res.data) };
 }
@@ -161,11 +150,9 @@ export async function create({ name, symbols = [], color = null }) {
 /**
  * Rename a watchlist (and optionally replace its symbols). [paid plan]
  */
-export async function rename({ id, name, symbols = null }) {
-  const type = await resolveType(id);
-  const body = { name };
-  if (Array.isArray(symbols)) body.symbols = symbols;
-  const res = await tvFetch(`/api/v1/symbols_list/${type}/${Number(id)}/`, { method: 'PUT', body });
+export async function rename({ id, name }) {
+  const l = await resolveList(id);
+  const res = await tvFetch(`/api/v1/symbols_list/${l.type}/${l.key}/rename/`, { method: 'POST', body: { name } });
   if (!res.ok) return res.status === 403 ? planError(res, 'rename') : { success: false, status: res.status, error: res.data };
   return { success: true, action: 'renamed', id: Number(id), name };
 }
@@ -174,8 +161,8 @@ export async function rename({ id, name, symbols = null }) {
  * Delete a watchlist. [paid plan]
  */
 export async function remove({ id }) {
-  const type = await resolveType(id);
-  const res = await tvFetch(`/api/v1/symbols_list/${type}/${Number(id)}/`, { method: 'DELETE' });
+  const l = await resolveList(id);
+  const res = await tvFetch(`/api/v1/symbols_list/${l.type}/${l.key}/`, { method: 'DELETE' });
   if (!res.ok) return res.status === 403 ? planError(res, 'delete') : { success: false, status: res.status, error: res.data };
   return { success: true, action: 'deleted', id: Number(id) };
 }
@@ -185,15 +172,11 @@ export async function remove({ id }) {
  * Symbols should be exchange-qualified (e.g. "NASDAQ:AAPL").
  */
 export async function addSymbols({ id = null, symbols }) {
-  const list = id != null ? { id: Number(id), type: await resolveType(id) } : await activeRef();
+  const list = id != null ? await resolveList(id) : await activeRef();
   if (!list) return { success: false, error: 'No active watchlist found' };
   const arr = Array.isArray(symbols) ? symbols : [symbols];
-  const res = await tvFetch(`/api/v1/symbols_list/${list.type}/${list.id}/append/`, { method: 'POST', body: arr });
-  if (!res.ok) {
-    if (res.status === 403) return planError(res, 'add_symbols');
-    if (list.type === 'colored') return coloredNote(res, 'add_symbols');
-    return { success: false, status: res.status, error: res.data };
-  }
+  const res = await tvFetch(`/api/v1/symbols_list/${list.type}/${list.key}/append/`, { method: 'POST', body: arr });
+  if (!res.ok) return res.status === 403 ? planError(res, 'add_symbols') : { success: false, status: res.status, error: res.data };
   // The append endpoint returns the updated symbol array directly.
   const updated = Array.isArray(res.data) ? res.data : (res.data?.symbols || undefined);
   return { success: true, action: 'added', id: list.id, added: arr, symbol_count: updated?.length, symbols: updated };
@@ -203,15 +186,11 @@ export async function addSymbols({ id = null, symbols }) {
  * Remove symbols from a watchlist. Targets the active list when id is omitted.
  */
 export async function removeSymbols({ id = null, symbols }) {
-  const list = id != null ? { id: Number(id), type: await resolveType(id) } : await activeRef();
+  const list = id != null ? await resolveList(id) : await activeRef();
   if (!list) return { success: false, error: 'No active watchlist found' };
   const arr = Array.isArray(symbols) ? symbols : [symbols];
-  const res = await tvFetch(`/api/v1/symbols_list/${list.type}/${list.id}/remove/`, { method: 'POST', body: arr });
-  if (!res.ok) {
-    if (res.status === 403) return planError(res, 'remove_symbols');
-    if (list.type === 'colored') return coloredNote(res, 'remove_symbols');
-    return { success: false, status: res.status, error: res.data };
-  }
+  const res = await tvFetch(`/api/v1/symbols_list/${list.type}/${list.key}/remove/`, { method: 'POST', body: arr });
+  if (!res.ok) return res.status === 403 ? planError(res, 'remove_symbols') : { success: false, status: res.status, error: res.data };
   const updated = Array.isArray(res.data) ? res.data : (res.data?.symbols || undefined);
   return { success: true, action: 'removed', id: list.id, removed: arr, symbol_count: updated?.length, symbols: updated };
 }
@@ -220,17 +199,21 @@ export async function removeSymbols({ id = null, symbols }) {
  * Set the active watchlist. [paid plan for multi-list accounts]
  */
 export async function setActive({ id }) {
-  const type = await resolveType(id);
-  const res = await tvFetch(`/api/v1/symbols_list/${type}/${Number(id)}/`, { method: 'PUT', body: { active: true } });
+  // POST /active/<key>/ — key is the numeric id for custom lists, color name
+  // for colored lists. No body.
+  const l = await resolveList(id);
+  const res = await tvFetch(`/api/v1/symbols_list/active/${l.key}/`, { method: 'POST' });
   if (!res.ok) return res.status === 403 ? planError(res, 'set_active') : { success: false, status: res.status, error: res.data };
-  return { success: true, action: 'set_active', id: Number(id) };
+  return { success: true, action: 'set_active', id: Number(id), type: l.type };
 }
 
-/** Internal: get {id, type} of the active list. */
+/** Internal: get {id, type, color, key} of the active list. */
 async function activeRef() {
   const res = await tvFetch('/api/v1/symbols_list/active/');
   if (!res.ok || !res.data?.id) return null;
-  return { id: res.data.id, type: res.data.type || 'custom' };
+  const type = res.data.type || 'custom';
+  const key = type === 'colored' ? res.data.color : String(res.data.id);
+  return { id: res.data.id, type, color: res.data.color || null, key };
 }
 
 // --- Backwards-compatible aliases for the original tool surface ---

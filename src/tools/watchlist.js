@@ -71,24 +71,22 @@ export function registerWatchlistTools(server) {
   // --- List management (paid plan: Essential/Plus/Premium) ---
   server.tool(
     'watchlist_create',
-    'Create a new watchlist. Pass a color to create a colored/flagged list. REQUIRES a paid TradingView plan — returns a plan-limit message otherwise.',
+    'Create a new custom watchlist. REQUIRES a paid TradingView plan — returns a plan-limit message otherwise. (Colored/flag lists cannot be created — they are fixed buckets; flag symbols into them with watchlist_add using the colored list id.)',
     {
       name: z.string().describe('Watchlist name'),
       symbols: z.array(z.string()).optional().describe('Initial symbols, e.g. ["NASDAQ:AAPL"]'),
-      color: z.enum(['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink']).optional().describe('Color for a flagged list (omit for a normal custom list)'),
     },
-    wrap(({ name, symbols, color }) => core.create({ name, symbols: symbols || [], color: color || null })),
+    wrap(({ name, symbols }) => core.create({ name, symbols: symbols || [] })),
   );
 
   server.tool(
     'watchlist_rename',
-    'Rename a watchlist (optionally replace all its symbols). REQUIRES a paid TradingView plan.',
+    'Rename a watchlist. REQUIRES a paid TradingView plan.',
     {
       id: z.union([z.string(), z.number()]).describe('Watchlist id'),
       name: z.string().describe('New name'),
-      symbols: z.array(z.string()).optional().describe('Optional: replace the full symbol list'),
     },
-    wrap(({ id, name, symbols }) => core.rename({ id, name, symbols: symbols ?? null })),
+    wrap(({ id, name }) => core.rename({ id, name })),
   );
 
   server.tool(
