@@ -17,8 +17,20 @@ const VERSION = 57;
 const COLUMN_IDS = {
   price: 'Price', close: 'Price', change: 'Change', volume: 'Volume',
   market_cap: 'MarketCap', mcap: 'MarketCap', beta: 'Beta',
-  rsi: 'RSI', pe: 'PriceEarningsTTM', dividend_yield: 'DividendYield',
+  pe: 'PriceToEarnings', peg: 'PriceToEarningsToGrowth', dividend_yield: 'DividendsYield',
   index: 'Index', sector: 'Sector',
+  float: 'SharesFloat', float_shares: 'SharesFloat', shares_float: 'SharesFloat',
+  relative_volume: 'RelativeVolume', rel_volume: 'RelativeVolume', rel_vol: 'RelativeVolume',
+  roe: 'ReturnOnEquity', revenue_growth: 'RevenueGrowth', eps_growth: 'EpsDilutedGrowth',
+  performance: 'Performance', analyst_rating: 'AnalystRating',
+};
+
+// storage column id → required params
+const COLUMN_PARAMS = {
+  Change: { resolution: 'TimeResolution1D' },
+  RelativeVolume: { resolution: 'TimeResolution1D' },
+  DividendsYield: { fiscalPeriod: 'ttm' },
+  EpsDilutedGrowth: { period: 'YoYTTM' },
 };
 
 // friendly op → storage operation type
@@ -31,8 +43,7 @@ const OPS = {
 
 function buildColumn(name) {
   const id = COLUMN_IDS[name] || name; // allow raw storage id passthrough
-  const params = id === 'Change' ? { resolution: 'TimeResolution1D' } : {};
-  return { id, params };
+  return { id, params: COLUMN_PARAMS[id] || {} };
 }
 
 /** Translate one friendly filter spec into a storage-format filter. */
