@@ -216,4 +216,14 @@ export function registerDiscoveryTools(server) {
     },
     wrap(screener.peers),
   );
+
+  server.tool(
+    'key_stats_get',
+    'Key trading stats for a symbol: beta, 52-week high/low + where price sits in that range, all-time high, average volume (10d/30d), relative volume, float %, VWAP.',
+    {
+      symbol: z.string().describe('Exchange-qualified symbol'),
+      market: z.string().optional().describe('Scanner market (default america)'),
+    },
+    wrap(insights.keyStats),
+  );
 }

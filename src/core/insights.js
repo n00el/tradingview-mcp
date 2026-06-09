@@ -77,6 +77,25 @@ export async function search({ query, type = '', exchange = '' } = {}) {
   return { success: true, query, count: results.length, results };
 }
 
+/** Key trading stats: beta, 52w range + position, ATH, avg volume, float, VWAP. */
+export async function keyStats({ symbol, market = 'america' } = {}) {
+  if (!symbol) return { success: false, error: 'symbol is required' };
+  const cols = ['close', 'beta_1_year', 'price_52_week_high', 'price_52_week_low', 'High.All', 'average_volume_10d_calc', 'average_volume_30d_calc', 'relative_volume_10d_calc', 'float_shares_percent_current', 'VWAP'];
+  const res = await pageFetch(SCAN(market), { method: 'POST', contentType: 'text/plain', body: { symbols: { tickers: [symbol] }, columns: cols } });
+  if (!res.ok) return { success: false, status: res.status, error: res.data };
+  const d = res.data?.data?.[0]?.d;
+  if (!d) return { success: false, error: `No stats for ${symbol}` };
+  const [close, beta, hi52, lo52, ath, av10, av30, relVol, floatPct, vwap] = d;
+  const pos = (hi52 != null && lo52 != null && hi52 > lo52) ? +(((close - lo52) / (hi52 - lo52)) * 100).toFixed(1) : null;
+  return {
+    success: true, symbol, price: close, beta_1y: beta,
+    range_52w: { high: hi52, low: lo52, position_pct: pos },
+    all_time_high: ath,
+    avg_volume_10d: av10, avg_volume_30d: av30, relative_volume: relVol,
+    float_shares_pct: floatPct, vwap,
+  };
+}
+
 /** Flatten a TradingView text AST (used by minds/ideas) to plain text. */
 function astText(node, out = []) {
   if (node == null) return out;
