@@ -24,7 +24,7 @@ const server = new McpServer(
     description: 'AI-assisted TradingView chart analysis and Pine Script development via Chrome DevTools Protocol',
   },
   {
-    instructions: `TradingView MCP — 78 tools for reading and controlling a live TradingView Desktop chart.
+    instructions: `TradingView MCP — 115 tools for reading/controlling a live TradingView Desktop chart, plus REST-based market data (screener, news, calendars, fundamentals, technicals, analysts).
 
 TOOL SELECTION GUIDE — use this to pick the right tool:
 
@@ -61,6 +61,20 @@ Alerts: alert_create, alert_list, alert_delete
 Launch: tv_launch → auto-detect and start TradingView with CDP on any platform
 Panes: pane_list, pane_set_layout (s, 2h, 2v, 4, 6, 8), pane_focus, pane_set_symbol
 Tabs: tab_list, tab_new, tab_close, tab_switch
+
+Watchlists (REST): watchlist_list_all, watchlist_get_active, watchlist_create,
+  watchlist_rename, watchlist_delete, watchlist_set_active, watchlist_add,
+  watchlist_add_symbols, watchlist_remove_symbols
+Indicators: indicator_search (by alias) -> indicator_add, indicator_get_inputs,
+  indicator_set_inputs_by_name. Pine: pine_apply, template_list/template_apply
+Discovery & data (REST, no chart needed):
+- screener_scan (presets + raw filters), movers_get (gainers/losers/sectors)
+- news_get / news_article
+- calendar_economic, calendar_earnings
+- quotes_get (any asset class), market_overview, yield_curve
+- fundamentals_get, financials_history, earnings_get, dividends_get, analysts_get
+- technicals_get (buy/sell gauge), key_stats_get, symbol_profile, symbol_lookup
+- peers_get, ideas_get, minds_get
 
 CONTEXT MANAGEMENT:
 - ALWAYS use summary=true on data_get_ohlcv
