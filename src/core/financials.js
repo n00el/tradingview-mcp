@@ -61,6 +61,32 @@ export async function earnings({ symbol, market = 'america' } = {}) {
   };
 }
 
+// consensus mark: 1=Strong Buy ... 5=Strong Sell
+function consensusLabel(m) {
+  if (m == null) return 'n/a';
+  if (m <= 1.5) return 'Strong Buy';
+  if (m <= 2.5) return 'Buy';
+  if (m <= 3.5) return 'Hold';
+  if (m <= 4.5) return 'Sell';
+  return 'Strong Sell';
+}
+
+/** Analyst price targets + ratings consensus. */
+export async function analysts({ symbol, market = 'america' } = {}) {
+  if (!symbol) return { success: false, error: 'symbol is required' };
+  const cols = ['close', 'price_target_average', 'price_target_high', 'price_target_low', 'price_target_median', 'recommendation_mark', 'recommendation_total', 'recommendation_buy', 'recommendation_hold', 'recommendation_sell'];
+  const r = await scanRow(market, symbol, cols);
+  if (!r.ok) return { success: false, status: r.status, error: r.error };
+  const [close, avg, high, low, median, mark, total, buy, hold, sell] = r.d;
+  const upside = (avg != null && close) ? +(((avg - close) / close) * 100).toFixed(2) : null;
+  return {
+    success: true, symbol, price: close,
+    price_target: { average: avg, high, low, median, upside_pct: upside },
+    consensus: consensusLabel(mark),
+    ratings: { total, buy, hold, sell },
+  };
+}
+
 /** Dividend snapshot: yield, per-share, payout ratio, last annual dividend. */
 export async function dividends({ symbol, market = 'america' } = {}) {
   if (!symbol) return { success: false, error: 'symbol is required' };

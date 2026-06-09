@@ -199,4 +199,21 @@ export function registerDiscoveryTools(server) {
     { symbol: z.string().describe('Exchange-qualified US stock') },
     wrap(financials.dividends),
   );
+
+  server.tool(
+    'analysts_get',
+    'Analyst price targets (average/high/low/median + upside vs current price) and ratings consensus (buy/hold/sell counts + Strong Buy…Strong Sell label).',
+    { symbol: z.string().describe('Exchange-qualified US stock') },
+    wrap(financials.analysts),
+  );
+
+  server.tool(
+    'peers_get',
+    'Peer companies in the same industry as a symbol, ranked by market cap (with price, change %, market cap, P/E).',
+    {
+      symbol: z.string().describe('Exchange-qualified US stock'),
+      limit: z.coerce.number().optional().describe('Max peers (default 10)'),
+    },
+    wrap(screener.peers),
+  );
 }

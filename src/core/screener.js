@@ -133,3 +133,24 @@ export async function movers({ type = 'gainers', market = 'america', limit = 15 
   if (!preset) return { success: false, error: `type must be gainers|losers|active|sectors` };
   return scan({ market, preset, columns: ['name', 'close', 'change', 'volume', 'market_cap_basic'], limit });
 }
+
+/**
+ * Peer companies: same industry as the given symbol, ranked by market cap.
+ */
+export async function peers({ symbol, limit = 10, market = 'america' } = {}) {
+  if (!symbol) return { success: false, error: 'symbol is required' };
+  const meta = await pageFetch(SCANNER(market), { method: 'POST', contentType: 'text/plain', body: { symbols: { tickers: [symbol] }, columns: ['industry', 'sector'] } });
+  if (!meta.ok) return { success: false, status: meta.status, error: meta.data };
+  const d = meta.data?.data?.[0]?.d;
+  if (!d || !d[0]) return { success: false, error: `Could not determine industry for ${symbol}` };
+  const [industry, sector] = d;
+  const res = await scan({
+    market,
+    filters: [{ left: 'industry', operation: 'equal', right: industry }],
+    columns: ['name', 'description', 'close', 'change', 'market_cap_basic', 'price_earnings_ttm'],
+    sort: { sortBy: 'market_cap_basic', sortOrder: 'desc' },
+    limit,
+  });
+  if (!res.success) return res;
+  return { success: true, symbol, sector, industry, count: res.results.length, peers: res.results };
+}

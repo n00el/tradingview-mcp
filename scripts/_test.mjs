@@ -1,10 +1,8 @@
 import * as f from '../src/core/financials.js';
+import * as s from '../src/core/screener.js';
 import { disconnect } from '../src/connection.js';
 const log=(t,o)=>console.log(t,JSON.stringify(o));
-const h=await f.history({symbol:'NASDAQ:AAPL',period:'annual',periods:5});
-log('history annual ->', {ok:h.success,revenue:h.series.revenue,net_income:h.series.net_income,eps:h.series.eps_diluted});
-const q=await f.history({symbol:'NASDAQ:AAPL',period:'quarterly',periods:4});
-log('history quarterly revenue ->', q.series.revenue);
-log('earnings ->', await f.earnings({symbol:'NASDAQ:AAPL'}));
-log('dividends ->', await f.dividends({symbol:'NASDAQ:AAPL'}));
+log('analysts AAPL ->', await f.analysts({symbol:'NASDAQ:AAPL'}));
+const p=await s.peers({symbol:'NASDAQ:AAPL',limit:5});
+log('peers AAPL ->', {ok:p.success,sector:p.sector,industry:p.industry,peers:p.peers?.map(x=>x.name+' $'+(x.market_cap_basic/1e9).toFixed(0)+'B')});
 await disconnect();
