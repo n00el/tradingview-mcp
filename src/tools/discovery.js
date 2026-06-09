@@ -6,6 +6,7 @@ import * as calendar from '../core/calendar.js';
 import * as markets from '../core/markets.js';
 import * as insights from '../core/insights.js';
 import * as financials from '../core/financials.js';
+import * as savedScreener from '../core/saved_screener.js';
 
 const wrap = (fn) => async (args) => {
   try { return jsonResult(await fn(args || {})); }
@@ -225,5 +226,40 @@ export function registerDiscoveryTools(server) {
       market: z.string().optional().describe('Scanner market (default america)'),
     },
     wrap(insights.keyStats),
+  );
+
+  // ── Saved screener presets (native — appear in the Screener tab dropdown) ──
+  server.tool(
+    'screener_list_saved',
+    'List your saved native screener presets (the ones in the Screener tab dropdown).',
+    { screener_key: z.string().optional().describe('stock (default), crypto, forex, ...') },
+    wrap(savedScreener.listSaved),
+  );
+
+  server.tool(
+    'screener_save',
+    'Save a native screener preset to your TradingView account (shows up in the Screener tab dropdown). Friendly filters: [{"column":"price","op":"above","value":200},{"column":"market_cap","op":"between","min":1e9,"max":1e12},{"column":"sector","op":"in","values":["Technology Services"]}]. Columns: price, change, volume, market_cap, beta, rsi, pe, dividend_yield, sector, index (or a raw storage column id). Ops: above, below, above_or_equal, below_or_equal, equal, between, in.',
+    {
+      title: z.string().describe('Preset name'),
+      filters: z.string().optional().describe('JSON array of friendly filter specs'),
+      raw_filters: z.string().optional().describe('JSON array of full storage-format filters (advanced; overrides filters)'),
+      market: z.string().optional().describe('Market (default america)'),
+      sort_by: z.string().optional().describe('Sort column (default MarketCap)'),
+      sort_order: z.enum(['asc', 'desc']).optional().describe('Default desc'),
+      screener_key: z.string().optional().describe('stock (default), crypto, forex, ...'),
+    },
+    wrap(({ title, filters, raw_filters, market, sort_by, sort_order, screener_key }) => savedScreener.save({
+      title,
+      filters: filters ? JSON.parse(filters) : [],
+      raw_filters: raw_filters ? JSON.parse(raw_filters) : undefined,
+      market, sort_by, sort_order, screener_key,
+    })),
+  );
+
+  server.tool(
+    'screener_delete_saved',
+    'Delete a saved screener preset by id (from screener_list_saved).',
+    { id: z.string().describe('Saved screen id') },
+    wrap(savedScreener.deleteSaved),
   );
 }
