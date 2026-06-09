@@ -5,6 +5,7 @@ import * as news from '../core/news.js';
 import * as calendar from '../core/calendar.js';
 import * as markets from '../core/markets.js';
 import * as insights from '../core/insights.js';
+import * as financials from '../core/financials.js';
 
 const wrap = (fn) => async (args) => {
   try { return jsonResult(await fn(args || {})); }
@@ -171,5 +172,31 @@ export function registerDiscoveryTools(server) {
       limit: z.coerce.number().optional().describe('Max posts (default 10)'),
     },
     wrap(insights.minds),
+  );
+
+  // ── Financials ──
+  server.tool(
+    'financials_history',
+    'Historical financials as time series (most-recent-first): revenue, gross profit, net income, EBITDA, free cash flow, total assets, total debt, diluted EPS. Annual or quarterly.',
+    {
+      symbol: z.string().describe('Exchange-qualified US stock, e.g. "NASDAQ:AAPL"'),
+      period: z.enum(['annual', 'quarterly']).optional().describe('Default annual'),
+      periods: z.coerce.number().optional().describe('How many periods (default 8, max 20)'),
+    },
+    wrap(financials.history),
+  );
+
+  server.tool(
+    'earnings_get',
+    'Earnings snapshot: latest reported EPS vs forecast, surprise %, last/next report dates, next EPS forecast, YoY EPS growth.',
+    { symbol: z.string().describe('Exchange-qualified US stock') },
+    wrap(financials.earnings),
+  );
+
+  server.tool(
+    'dividends_get',
+    'Dividend snapshot: yield, per-share (quarterly + annual), payout ratio, last annual dividend, years of continuous payout.',
+    { symbol: z.string().describe('Exchange-qualified US stock') },
+    wrap(financials.dividends),
   );
 }
